@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>You Decide story episode</title>
+<!--
+  One episode = this page + story.json + timing.json + audio/voice.wav, all in one folder.
+  Render it with the skill's scripts/render.mjs (it serves the folder and moves the page frame by frame).
+
+  You edit two places:
+    1. SCENES  (the SVG below)   one <g class="scene" id="scene-<line id>"> per line of story.json
+    2. MOTION  (the first script) what moves inside each scene
+  Everything else is the engine. It reads story.json and timing.json and already puts the scene
+  cuts, the captions, the clock and the choice card on the right seconds.
+
+  With no story.json and no timing.json in the folder, the page shows its built-in sample
+  (two scenes and the choice), so a fresh copy renders before any editing.
+-->
+<style>
+/* The stage is one SVG of 1080 x 1920 units, scaled to the window. 1 unit = 1 pixel at full size. */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #060a1c; }
+#stage { display: block; width: 100vw; height: 100vh; }
+#stage text { font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+
+/* Top strip: label on the left, clock on the right */
+#stage .strip-label { font-size: 32px; font-weight: 700; letter-spacing: 8px; fill: #ffd27a; }
+#stage .clock { font-family: ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 39px; font-weight: 600; fill: #ffffff; text-anchor: end; }
+#stage .clock.changed { fill: #ffffff; } /* colour of the clock after it has changed */
+
+/* Captions */
+#stage .caption { font-size: 70px; font-weight: 800; fill: #ffffff; stroke: #060a18; stroke-width: 18px; paint-order: stroke; stroke-linejoin: round; text-anchor: middle; }
+
+/* Choice card */
+#stage .choice-question { font-size: 104px; font-weight: 800; fill: #ffffff; text-anchor: middle; }
+#stage .choice-word { font-size: 99px; font-weight: 800; text-anchor: middle; }
+#stage .choice-word.a { fill: #3ddc84; }
+#stage .choice-word.b { fill: #ff5a45; }
+#stage .choice-note { font-size: 36px; font-weight: 600; fill: #cfd4e4; text-anchor: middle; }
+#stage .choice-cta { font-size: 35px; font-weight: 700; letter-spacing: 8px; fill: #ffd27a; text-anchor: middle; }
+#error { position: fixed; inset: 0; padding: 40px; background: #060a1c; color: #ff8a7a; font: 28px/1.4 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<svg id="stage" viewBox="0 0 1080 1920" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g-sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#060a1c"/><stop offset="0.55" stop-color="#131f47"/><stop offset="1" stop-color="#26376e"/>
+    </linearGradient>
+    <linearGradient id="g-beam" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#fff2c2" stop-opacity="0.5"/><stop offset="1" stop-color="#fff2c2" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- =====================================================================================
+       1. SCENES. One group per line of story.json, named scene-<line id>. Replace the sample.
+          Layout of the 1080 x 1920 stage:
+            y    0 -  182   top strip (label and clock). Keep it clear.
+            y  250 - 1250   the picture: the main subject lives here and fills it.
+            y 1290 - 1500   caption band. Keep it calm: one flat dark colour behind the words.
+            y 1560 - 1920   covered by app buttons on phones. Nothing important here.
+          data-caption-y  the middle of the caption (default 1400).
+          data-zoom       the scene starts at this scale and settles to 1 (default 1.06, 1 = still).
+          Do not put a transform on a .scene group and do not tween it. Work on named groups inside.
+       ===================================================================================== -->
+  <g id="scenes">
+
+    <!-- l1: the last bus on a night road -->
+    <g class="scene" id="scene-l1" data-caption-y="1400" data-sample>
+      <rect width="1080" height="1110" fill="url(#g-sky)"/>
+      <g fill="#ffffff">
+        <circle cx="96" cy="270" r="3.6" opacity="0.8"/><circle cx="240" cy="410" r="2.8" opacity="0.6"/><circle cx="380" cy="236" r="4" opacity="0.9"/>
+        <circle cx="530" cy="360" r="2.8" opacity="0.5"/><circle cx="676" cy="252" r="3.4" opacity="0.7"/><circle cx="968" cy="520" r="3" opacity="0.6"/>
+        <circle cx="156" cy="566" r="2.8" opacity="0.5"/><circle cx="610" cy="548" r="3.4" opacity="0.6"/><circle cx="1010" cy="226" r="2.8" opacity="0.7"/>
+      </g>
+      <circle cx="846" cy="352" r="104" fill="#f3e6b8" opacity="0.10"/>
+      <circle cx="846" cy="352" r="57" fill="#f3e6b8"/>
+      <circle cx="872" cy="336" r="49" fill="#0e1738"/>
+      <path d="M0 1040 L180 950 L390 1030 L610 930 L850 1020 L1080 960 L1080 1110 L0 1110 Z" fill="#0c1430"/>
+      <rect y="1100" width="1080" height="820" fill="#0a1022"/>
+      <rect y="1150" width="1080" height="500" fill="#0e1530"/>
+      <g id="l1-dashes" fill="#2c3870">
+        <rect x="40" y="1560" width="136" height="13"/><rect x="300" y="1560" width="136" height="13"/><rect x="560" y="1560" width="136" height="13"/>
+        <rect x="820" y="1560" width="136" height="13"/><rect x="1080" y="1560" width="136" height="13"/><rect x="1340" y="1560" width="136" height="13"/><rect x="1600" y="1560" width="136" height="13"/>
+      </g>
+      <g id="l1-bus">
+        <polygon points="936,1030 1560,930 1560,1230 936,1084" fill="url(#g-beam)"/>
+        <rect x="140" y="650" width="800" height="480" rx="44" fill="#22306a"/>
+        <rect x="140" y="1010" width="800" height="24" fill="#d8432e"/>
+        <g fill="#f6c56a">
+          <rect x="184" y="740" width="128" height="170" rx="10"/><rect x="336" y="740" width="128" height="170" rx="10"/>
+          <rect x="488" y="740" width="128" height="170" rx="10"/><rect x="640" y="740" width="128" height="170" rx="10"/>
+          <path d="M800 740 L884 740 Q912 740 912 768 L912 910 L800 910 Z"/>
+        </g>
+        <circle cx="856" cy="822" r="30" fill="#2a1c12"/><path d="M812 910 Q856 846 900 910 Z" fill="#2a1c12"/>
+        <rect x="610" y="676" width="302" height="44" rx="8" fill="#0e1634" stroke="#ff5a45" stroke-width="3"/>
+        <text x="761" y="709" text-anchor="middle" font-size="28" font-weight="800" letter-spacing="6" fill="#ff6a55">N9 DEPOT</text>
+        <rect x="922" y="1040" width="18" height="36" rx="6" fill="#fff2c2"/>
+        <rect x="140" y="1046" width="12" height="30" rx="4" fill="#ff5a45"/>
+        <circle cx="300" cy="1136" r="62" fill="#05070f"/><circle cx="300" cy="1136" r="24" fill="#3b4366"/>
+        <circle cx="770" cy="1136" r="62" fill="#05070f"/><circle cx="770" cy="1136" r="24" fill="#3b4366"/>
+      </g>
+    </g>
+
+    <!-- l2: a man at the roadside, seen through the open bus door -->
+    <g class="scene" id="scene-l2" data-caption-y="1420" data-sample>
+      <rect width="1080" height="1250" fill="url(#g-sky)"/>
+      <path d="M0 1010 Q60 880 150 940 Q220 800 330 900 Q420 790 520 880 Q640 770 730 890 Q850 800 930 910 Q1010 850 1080 930 L1080 1250 L0 1250 Z" fill="#0c1430"/>
+      <rect y="1130" width="1080" height="120" fill="#0a1022"/>
+      <polygon id="l2-beam" points="0,640 1080,430 1080,1250 0,1250" fill="url(#g-beam)"/>
+      <!-- Size and place go on an outer group. Motion goes on the named groups inside it. -->
+      <g transform="translate(540 1250) scale(1.12) translate(-540 -1250)">
+        <g id="l2-man">
+          <g id="l2-arm">
+            <path d="M692 974 L800 742" stroke="#1b2444" stroke-width="72" stroke-linecap="round" fill="none"/>
+            <circle cx="808" cy="716" r="40" fill="#d9ad8c"/>
+          </g>
+          <path d="M330 1250 L352 1004 Q372 932 456 910 L624 910 Q708 932 728 1004 L750 1250 Z" fill="#1b2444"/>
+          <rect x="498" y="832" width="84" height="100" fill="#c79a7a"/>
+          <ellipse cx="540" cy="756" rx="99" ry="114" fill="#d9ad8c"/>
+          <path d="M436 724 Q444 600 540 596 Q636 600 644 724 Z" fill="#11162c"/>
+          <rect x="430" y="700" width="220" height="36" rx="12" fill="#22306a"/>
+          <circle cx="504" cy="772" r="9" fill="#141826"/><circle cx="576" cy="772" r="9" fill="#141826"/>
+          <path d="M483 751 L524 740" stroke="#141826" stroke-width="8" stroke-linecap="round"/>
+          <path d="M597 751 L556 740" stroke="#141826" stroke-width="8" stroke-linecap="round"/>
+          <path d="M512 824 L568 824" stroke="#7a4a36" stroke-width="8" stroke-linecap="round"/>
+        </g>
+      </g>
+      <!-- inside the bus: the door frame, and the dark panel the caption sits on -->
+      <rect width="1080" height="250" fill="#141d40"/>
+      <rect width="74" height="1250" fill="#141d40"/><rect x="1006" width="74" height="1250" fill="#141d40"/>
+      <rect y="1240" width="1080" height="680" fill="#141d40"/>
+      <rect y="1240" width="1080" height="22" fill="#22306a"/>
+      <rect y="1262" width="1080" height="6" fill="#0a1022"/>
+    </g>
+
+  </g>
+
+  <!-- ENGINE LAYERS. Filled and timed by the engine from story.json and timing.json. Leave as they are. -->
+  <g id="strip">
+    <rect width="1080" height="182" fill="#060a1c" opacity="0.55"/>
+    <text id="strip-label" class="strip-label" x="56" y="112"></text>
+    <g id="clocks"></g>
+  </g>
+  <g id="captions"></g>
+  <g id="choice">
+    <rect id="choice-dim" width="1080" height="1920" fill="#050818" opacity="0"/>
+    <text id="choice-question" class="choice-question" x="540" y="779"></text>
+    <rect id="choice-divider" x="537" y="898" width="6" height="239" fill="#ffffff" opacity="0.35"/>
+    <g id="choice-a"><text id="choice-a-word" class="choice-word a" x="280" y="1033"></text><text id="choice-a-note" class="choice-note" x="280" y="1111"></text></g>
+    <g id="choice-b"><text id="choice-b-word" class="choice-word b" x="800" y="1033"></text><text id="choice-b-note" class="choice-note" x="800" y="1111"></text></g>
+    <text id="choice-cta" class="choice-cta" x="540" y="1277"></text>
+  </g>
+</svg>
+
+<script>
+// =========================================================================================
+// 2. MOTION. What moves inside each scene. Replace the sample with your episode's motion.
+//
+//    Already done by the engine, from timing.json: scene cuts, the slow zoom of every scene,
+//    captions, clock changes, the choice card. Do not time those again here.
+//
+//    line('l2')            -> { start, end, next }   seconds from timing.json
+//                             start = the line starts (the cut to its scene)
+//                             end   = the narrator finishes the line
+//                             next  = the next line starts (this line's scene ends)
+//    show(el, start, end)  -> el is hidden before start and after end (end is optional)
+//    tl                    -> the GSAP timeline. Give every tween its start second as the last argument.
+//
+//    Rules:
+//    - Every start second is line(id).start plus an offset. 0 (the first frame) is the only
+//      bare number allowed. No hand-set seconds: when the voice changes, nothing may drift.
+//    - A shape that comes in later needs show(el, start) on the same second as its tween,
+//      or it sits in the frame before its entrance.
+//    - Only tweens. No callbacks (tl.call, onComplete) and no Math.random(): the renderer
+//      jumps to each frame, so only tweened values are drawn.
+// =========================================================================================
+function motion({ tl, show, line }) {
+  const l1 = line('l1'), l2 = line('l2');
+
+  // l1: the bus is already in the first frame and rolls to the middle while the road slides under it
+  tl.fromTo('#l1-bus', { x: -430 }, { x: 0, duration: 2.6, ease: 'power2.out' }, 0);
+  tl.fromTo('#l1-dashes', { x: 0 }, { x: -520, duration: l1.next, ease: 'none' }, 0);
+
+  // l2: the headlights find the roadside, the man steps in and waves.
+  // Without show() his shoulder would be in the frame before he steps in.
+  tl.fromTo('#l2-beam', { opacity: 0 }, { opacity: 0.7, duration: 0.5, ease: 'power2.out' }, l2.start);
+  show('#l2-man', l2.start + 0.4);
+  tl.fromTo('#l2-man', { x: 560 }, { x: 0, duration: 0.7, ease: 'power2.out' }, l2.start + 0.4);
+  tl.fromTo('#l2-arm', { rotation: -10, svgOrigin: '692 974' }, { rotation: 12, duration: 0.4, repeat: 9, yoyo: true, ease: 'sine.inOut' }, l2.start + 1.2);
+}
+
+// Built-in sample, used only when the folder has no story.json and no timing.json.
+const SAMPLE = {
+  story: {
+    title: 'LAST BUS',
+    lines: [
+      { id: 'l1', say: 'You drive the last bus of the night.', caption: 'You drive the last bus.', clock: '11:58 PM' },
+      { id: 'l2', say: 'A man waves you down. There is no stop here.', caption: 'A man waves you down. No stop here.', clock: '11:59 PM' },
+    ],
+    choice: { question: 'WOULD YOU?', a: 'STOP', b: 'DRIVE', aNote: 'let him on', bNote: 'keep going' },
+  },
+  timing: {
+    duration: 13.2,
+    lines: [
+      { id: 'l1', start: 0.3, end: 2.7 }, { id: 'l2', start: 3.3, end: 6.4 },
+      { id: 'choice', start: 7.2, end: 7.9 }, { id: 'choice-a', start: 8.1, end: 8.7 },
+      { id: 'choice-b', start: 8.8, end: 9.6 }, { id: 'choice-cta', start: 9.8, end: 11.0 },
+    ],
+  },
+};
+</script>
+
+<script>
+// =========================================================================================
+// ENGINE. You should not need to edit below this line.
+// =========================================================================================
+(async () => {
+  const notes = (window.__notes = []);
+  class Fix extends Error {} // a problem with a known fix: shown as a plain message
+  try {
+    const SVG = 'http://www.w3.org/2000/svg';
+    const stage = document.getElementById('stage');
+    const $ = (selector) => stage.querySelector(selector);
+
+    // GSAP: the project's own "npm install gsap" first, then a copy next to this page.
+    const load = (src) => new Promise((ok, fail) => {
+      const script = document.createElement('script');
+      script.src = src;
+      script.onload = ok;
+      script.onerror = () => fail(new Error('could not load ' + src));
+      document.head.appendChild(script);
+    });
+    await load('./node_modules/gsap/dist/gsap.min.js')
+      .catch(() => load('./vendor/gsap.min.js'))
+      .catch(() => { throw new Fix('GSAP was not found. Run "npm install gsap" in the project folder, or put gsap.min.js in a vendor/ folder next to this page.'); });
+
+    // Story and timing.
+    const read = async (name) => {
+      let response;
+      try { response = await fetch(name, { cache: 'no-store' }); } catch { throw new Fix(`Could not read ${name}. Open this page through scripts/render.mjs: it serves the folder.`); }
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Fix(`${name}: HTTP ${response.status}`);
+      try { return await response.json(); } catch (e) { throw new Fix(`${name} is not valid JSON: ${e.message}`); }
+    };
+    let story = await read('story.json'), timing = await read('timing.json');
+    if (!story && !timing) {
+      ({ story, timing } = SAMPLE);
+      notes.push('No story.json and no timing.json in this folder: showing the built-in sample.');
+    } else if (!story) {
+      throw new Fix('timing.json is here but story.json is missing.');
+    } else if (!timing) {
+      throw new Fix('timing.json is missing. Run scripts/voice.mjs on this folder first.');
+    } else {
+      if (stage.querySelector('.scene[data-sample]')) throw new Fix('The template\'s sample scenes are still in the page. Delete them (and the sample motion) and draw the scenes of your own story.');
+      for (const row of story.lines) {
+        const timed = timing.lines.find((t) => t.id === row.id);
+        if (!timed) throw new Fix(`Line "${row.id}" is in story.json but not in timing.json. Run scripts/voice.mjs again.`);
+        if (timed.say !== undefined && timed.say !== String(row.say).trim()) throw new Fix(`The words of line "${row.id}" changed after the voice was made. Run scripts/voice.mjs again.`);
+      }
+    }
+    const rows = timing.lines;
+    const T = Object.fromEntries(rows.map((row, i) => [row.id, { ...row, index: i, next: rows[i + 1]?.start ?? timing.duration }]));
+    const line = (id) => {
+      if (!T[id]) throw new Fix(`line("${id}"): there is no such line. Lines in timing.json: ${rows.map((r) => r.id).join(', ')}`);
+      return T[id];
+    };
+    const choiceRow = line('choice');
+
+    gsap.defaults({ lazy: false, overwrite: false });
+    gsap.ticker.lagSmoothing(0);
+    const tl = gsap.timeline({ paused: true });
+    // Every tween must say when it starts and must hit a real element.
+    for (const method of ['to', 'from', 'fromTo', 'set']) {
+      const original = tl[method].bind(tl);
+      tl[method] = (...args) => {
+        const what = typeof args[0] === 'string' ? `"${args[0]}"` : 'element';
+        const position = args[method === 'fromTo' ? 3 : 2];
+        if (typeof position !== 'number' || !Number.isFinite(position) || position < 0) throw new Fix(`tl.${method}(${what}, ...): the last argument must be the start second, built from line(id).start (for example line("l2").start + 0.4). Got: ${position}`);
+        if (!gsap.utils.toArray(args[0]).length) throw new Fix(`tl.${method}(${what}, ...): no element matches.`);
+        return original(...args);
+      };
+    }
+    // Hidden before start and after end. "inherit" (not "visible") so a shape inside a scene
+    // also disappears when its scene does.
+    const show = (target, start, end) => {
+      const elements = gsap.utils.toArray(target);
+      const what = typeof target === 'string' ? `"${target}"` : 'element';
+      if (!elements.length) throw new Fix(`show(${what}): no element matches.`);
+      if (typeof start !== 'number' || !Number.isFinite(start)) throw new Fix(`show(${what}, start): start must be a second built from line(id).start. Got: ${start}`);
+      if (start <= 0) gsap.set(elements, { visibility: 'inherit' });
+      else { gsap.set(elements, { visibility: 'hidden' }); tl.set(elements, { visibility: 'inherit' }, start); }
+      if (end != null) tl.set(elements, { visibility: 'hidden' }, end);
+    };
+
+    await document.fonts.ready;
+    const addText = (parent, className, x, y, content) => {
+      const el = document.createElementNS(SVG, 'text');
+      el.setAttribute('class', className); el.setAttribute('x', x); el.setAttribute('y', y);
+      el.textContent = content;
+      parent.appendChild(el);
+      return el;
+    };
+    // Shrink a text until it fits its container.
+    const fit = (el, maxWidth) => {
+      for (let i = 0; i < 4 && el.getComputedTextLength() > maxWidth; i++) el.style.fontSize = (parseFloat(getComputedStyle(el).fontSize) * maxWidth / el.getComputedTextLength() * 0.99).toFixed(1) + 'px';
+    };
+
+    // Scenes: each comes on at its own line's start and stays until the next scene's line starts.
+    const scenes = [...stage.querySelectorAll('#scenes > .scene')].map((el) => {
+      const id = el.id.replace(/^scene-/, '');
+      if (!el.id.startsWith('scene-') || !T[id]) throw new Fix(`Scene group id="${el.id}" matches no line. Name every scene scene-<line id>. Lines: ${rows.map((r) => r.id).join(', ')}`);
+      if (el.hasAttribute('transform')) throw new Fix(`#${el.id} has a transform. Put it on a group inside the scene instead.`);
+      return { el, index: T[id].index, start: T[id].index === 0 ? 0 : T[id].start };
+    }).sort((a, b) => a.index - b.index);
+    if (!scenes.length || scenes[0].index !== 0) throw new Fix(`The first line needs a scene: <g class="scene" id="scene-${rows[0].id}">.`);
+    scenes.forEach((scene, i) => {
+      const end = scenes[i + 1]?.start ?? timing.duration;
+      show(scene.el, scene.start, scenes[i + 1]?.start);
+      const zoom = Number(scene.el.dataset.zoom ?? 1.06);
+      if (zoom !== 1) tl.fromTo(scene.el, { scale: zoom, svgOrigin: '540 1060' }, { scale: 1, duration: end - scene.start, ease: 'none' }, scene.start);
+    });
+    const sceneOf = (index) => scenes.findLast((scene) => scene.index <= index);
+    for (const row of story.lines) if (!$('#scene-' + row.id)) notes.push(`Line "${row.id}" has no scene of its own: the previous scene stays on screen.`);
+
+    // Top strip: the label, and one clock text per value. A clock appears at the start of the
+    // first line that carries it.
+    const clocks = [];
+    for (const row of [...story.lines, { id: 'choice', clock: story.choice?.clock }]) {
+      if (row.clock && row.clock !== clocks.at(-1)?.text) clocks.push({ text: String(row.clock), start: clocks.length ? line(row.id).start : 0 });
+    }
+    if (clocks.length < 2) notes.push('The clock never changes. Give a later line a different "clock" in story.json.');
+    let clockWidth = 0;
+    clocks.forEach((clock, i) => {
+      const el = addText($('#clocks'), i ? 'clock changed' : 'clock', 1024, 114, clock.text);
+      clockWidth = Math.max(clockWidth, el.getComputedTextLength());
+      show(el, clock.start, clocks[i + 1]?.start);
+      if (i) tl.fromTo(el, { scale: 1.25, svgOrigin: '1024 100' }, { scale: 1, duration: 0.35, ease: 'back.out(2)' }, clock.start);
+    });
+    $('#strip-label').textContent = String(story.title ?? '').toUpperCase();
+    fit($('#strip-label'), 1080 - 56 - 56 - clockWidth - 48);
+
+    // Captions: one per line, wrapped to the stage, on from its line's start to the next line's start.
+    const ruler = addText(stage, 'caption', 0, 0, '');
+    ruler.setAttribute('visibility', 'hidden');
+    const widthOf = (text) => { ruler.textContent = text; return ruler.getComputedTextLength(); };
+    const wrap = (text, limit) => {
+      const out = [];
+      let current = '';
+      for (const word of text.split(/\s+/).filter(Boolean)) {
+        const longer = current ? current + ' ' + word : word;
+        if (current && widthOf(longer) > limit) { out.push(current); current = word; } else current = longer;
+      }
+      if (current) out.push(current);
+      return out;
+    };
+    const CAPTION_WIDTH = 940, CAPTION_STEP = 84;
+    for (const row of story.lines) {
+      if (!row.caption) continue;
+      const l = line(row.id);
+      const y = Number(sceneOf(l.index).el.dataset.captionY ?? 1400);
+      // Forced breaks with \n are kept; long rows are wrapped and then evened out.
+      const lines = String(row.caption).split('\n').flatMap((part) => {
+        let limit = CAPTION_WIDTH, low = 0;
+        const count = wrap(part, limit).length;
+        for (let i = 0; count > 1 && i < 10; i++) { const mid = (low + limit) / 2; if (wrap(part, mid).length === count) limit = mid; else low = mid; }
+        return wrap(part, limit);
+      });
+      if (lines.length > 3) notes.push(`The caption of "${row.id}" takes ${lines.length} rows. Shorten it in story.json.`);
+      if (lines.some((text) => widthOf(text) > CAPTION_WIDTH)) notes.push(`A word in the caption of "${row.id}" is wider than the stage. Shorten it in story.json.`);
+      const el = addText($('#captions'), 'caption', 540, y, '');
+      el.id = 'caption-' + row.id;
+      lines.forEach((text, i) => {
+        const span = document.createElementNS(SVG, 'tspan');
+        span.setAttribute('x', 540); span.setAttribute('y', y + (i - (lines.length - 1) / 2) * CAPTION_STEP);
+        span.textContent = text;
+        el.appendChild(span);
+      });
+      show(el, l.start, l.next);
+      tl.fromTo(el, { opacity: 0, y: 26 }, { opacity: 1, y: 0, duration: 0.25, ease: 'power2.out' }, l.start);
+    }
+    ruler.remove();
+
+    // Choice card: comes on at the "choice" line. Each word lands when the narrator says it
+    // (choice-a, choice-b, choice-cta in timing.json), or on fixed offsets when they are not spoken.
+    const choice = story.choice ?? {};
+    const texts = { '#choice-question': choice.question ?? 'WOULD YOU?', '#choice-a-word': choice.a ?? '', '#choice-b-word': choice.b ?? '', '#choice-a-note': choice.aNote ?? '', '#choice-b-note': choice.bNote ?? '', '#choice-cta': choice.cta ?? 'COMMENT ONE WORD' };
+    for (const [selector, text] of Object.entries(texts)) { $(selector).textContent = text; fit($(selector), /-(word|note)$/.test(selector) ? 440 : 960); }
+    const beat = (id, offset) => T[id]?.start ?? choiceRow.start + offset;
+    show('#choice', choiceRow.start);
+    tl.fromTo('#choice-dim', { opacity: 0 }, { opacity: 0.8, duration: 0.4, ease: 'power2.out' }, choiceRow.start);
+    tl.fromTo('#choice-question', { opacity: 0, scale: 1.3, svgOrigin: '540 742' }, { opacity: 1, scale: 1, duration: 0.3, ease: 'back.out(2)' }, choiceRow.start + 0.15);
+    tl.fromTo('#choice-divider', { opacity: 0 }, { opacity: 0.35, duration: 0.3 }, beat('choice-a', 0.8));
+    tl.fromTo('#choice-a', { opacity: 0, x: -62 }, { opacity: 1, x: 0, duration: 0.3, ease: 'power3.out' }, beat('choice-a', 0.8));
+    tl.fromTo('#choice-b', { opacity: 0, x: 62 }, { opacity: 1, x: 0, duration: 0.3, ease: 'power3.out' }, beat('choice-b', 1.1));
+    tl.fromTo('#choice-cta', { opacity: 0 }, { opacity: 1, duration: 0.4 }, beat('choice-cta', 1.7));
+
+    // The episode's own motion, then make the timeline exactly as long as the voice track.
+    motion({ tl, show, line });
+    tl.set({}, {}, timing.duration);
+    tl.progress(1).progress(0);
+
+    // Hooks for scripts/render.mjs.
+    window.__timing = timing;
+    window.__duration = timing.duration;
+    window.__seek = (seconds) => { tl.seek(Math.max(0, Math.min(seconds, tl.duration())), true); };
+    window.__ready = true;
+  } catch (e) {
+    window.__error = e instanceof Fix ? e.message : String(e && e.stack ? e.stack : e);
+    const box = document.createElement('pre');
+    box.id = 'error';
+    box.textContent = window.__error;
+    document.body.appendChild(box);
+  }
+})();
+</script>
+</body>
+</html>
