@@ -8,6 +8,8 @@ Each folder is one skill. You describe what you want in plain English; Claude wr
 |---|---|
 | [`you-decide-story`](you-decide-story/) | A vertical "you decide" story video (1080 x 1920 MP4): drawn scenes, a narrator, captions timed to the voice, a clock, and a two-word choice at the end. |
 
+**Free bonus:** the [story starter pack](https://zeroedithq.kit.com/c2b12dc3a3) has 3 finished episodes as code, the paragraphs behind them and 30 story premises. Enter your email, get the files.
+
 ## Quick start
 
 1. Install [Claude Code](https://code.claude.com/docs/en/setup). It runs on a paid Claude plan.
