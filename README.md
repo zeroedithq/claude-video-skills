@@ -10,6 +10,8 @@ Each folder is one skill. You describe what you want in plain English; Claude wr
 
 **Free bonus:** the [story starter pack](https://zeroedithq.kit.com/c2b12dc3a3) has 3 finished episodes as code, the paragraphs behind them and 30 story premises. Enter your email, get the files.
 
+**Season Kit:** turn one episode into a 7-part series. Your viewers vote at the end of every part, and the next part opens with the word that won. The kit adds the season skill, reusable characters, a frame checker, covers and post text, and 90 new premises. One-time $29 at [zeroedit.batollc.com](https://zeroedit.batollc.com).
+
 ## Quick start
 
 1. Install [Claude Code](https://code.claude.com/docs/en/setup). It runs on a paid Claude plan.
